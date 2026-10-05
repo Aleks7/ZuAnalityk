@@ -1,5 +1,7 @@
 # Squad Rush
 
+**Zagraj:** https://aleks7.github.io/ZuAnalityk/
+
 Przeglądarkowa gra w stylu „runnerów z reklam”: oddział żołnierzy cały czas idzie do góry,
 strzela do przeciwników, a gracz wybiera bramki z ulepszeniami — **lewo albo prawo**.
 
