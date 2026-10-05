@@ -30,3 +30,8 @@ Opcjonalnie lokalny serwer: `python3 -m http.server` i wejdź na http://localhos
 - `index.html` — strona i ekrany menu,
 - `style.css` — wygląd UI,
 - `game.js` — cała logika gry (Canvas 2D, bez zależności).
+
+## Publikacja
+
+Każdy push na `main` publikuje grę na GitHub Pages (workflow `.github/workflows/pages.yml`):
+https://aleks7.github.io/ZuAnalityk/
