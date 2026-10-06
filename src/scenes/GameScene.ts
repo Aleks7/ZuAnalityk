@@ -116,7 +116,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     const s = this.squad;
     const h = this.helpers;
     const stats: [string, string][] = [
-      ['loot_dmg', fmt(s.damage * Math.max(1, s.count / MAX_SHOOTERS))],
+      ['loot_dmg', fmt(s.bulletDamage())],
       ['loot_fire', fmt(s.fireRate) + '/s'],
     ];
     if (s.multishot > 1) stats.push(['bullet', 'x' + s.multishot]);
@@ -493,8 +493,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     if (s.fireTimer > 0 || s.count <= 0) return;
     s.fireTimer = 1 / s.fireRate;
     const shooters = Math.min(s.count, MAX_SHOOTERS);
-    // Soldiers above the shooter cap make every bullet stronger instead
-    const dmg = s.damage * Math.max(1, s.count / MAX_SHOOTERS);
+    const dmg = s.bulletDamage();
     for (let i = 0; i < shooters; i++) {
       const o = formationOffset(i);
       for (let k = 0; k < s.multishot; k++) {

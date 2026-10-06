@@ -24,13 +24,24 @@ npm run build:offline  # jeden plik HTML do grania bez internetu → dist-offlin
 ## Zasady
 
 - Liczba nad oddziałem to liczba żołnierzy — to jednocześnie Twoje życie.
-- Bramki: niebieskie `+N` / `xN` dodają żołnierzy, zielone zwiększają szybkość strzelania lub moc,
-  czerwone `-N` / `÷N` zabierają żołnierzy. Pociski przelatują przez bramki.
-- Wrogowie zawsze idą jedną stroną drogi — można ich ominąć albo pokonać i zebrać łupy,
-  które zostawiają (żołnierze, szybkość, moc). Wchodzisz w łup, żeby go zebrać.
-- Na końcu etapu czeka boss. Po jego pokonaniu gra staje i wybierasz **nagrodę specjalną**
-  (posiłki, szybki spust, ciężka amunicja, podwójna lufa, tarcza, magnes albo pomocnik:
-  dron, pies bojowy, nalot, sokół zbieracz). Potem biegniesz dalej tym samym oddziałem.
+- Bramki dają tylko ulepszenia: niebieskie `+N` / `x2` dodają żołnierzy, zielone zwiększają
+  szybkość strzelania lub moc. W parze są zawsze dwa różne bonusy oddzielone ścianą „LUB” —
+  bierzesz tylko jeden. Pociski przelatują przez bramki.
+- Wrogowie zawsze idą jedną stroną drogi (od etapu 3 naprzemiennie z obu stron) — można ich
+  ominąć albo pokonać i zebrać łupy. Wchodzisz w łup, żeby go zebrać.
+- Z każdym etapem wrogowie mają wykładniczo więcej HP i dochodzą nowe typy:
+  | Wróg | Od etapu | Cecha |
+  |---|---|---|
+  | Piechur | 1 | podstawowy |
+  | Brutal | 1 | dużo HP, zabiera wielu żołnierzy |
+  | Biegacz | 2 | bardzo szybki |
+  | Tarczownik | 2 | pancerz zmniejsza obrażenia każdego pocisku |
+  | Strzelec | 3 | strzela w oddział — unikaj pocisków |
+  | Czołg | 4 | ogromne HP i pancerz, zawsze zostawia duży łup |
+- Na końcu etapu czeka boss (od etapu 2 strzela salwami, od 4 przywołuje biegaczy).
+  Po jego pokonaniu wybierasz **nagrodę specjalną**: posiłki, karabin maszynowy, ciężka amunicja,
+  podwójna lufa, tarcza, magnes albo pomocnik (dron, pies bojowy, nalot, sokół zbieracz).
+- Pasek na dole ekranu pokazuje obrażenia pocisku, szybkość strzelania, aktywne perki i pomocników.
 - Gra kończy się, gdy stracisz wszystkich żołnierzy. Rekord zapisuje się w przeglądarce.
 
 ## Struktura

@@ -60,7 +60,7 @@ export function buildStage(startY: number, stage: number): StageSpec {
     length,
     gates,
     enemies,
-    boss: { y: endY - 220, hp: 200 * Math.pow(1.6, stage - 1) },
+    boss: { y: endY - 220, hp: 220 * Math.pow(1.75, stage - 1) },
   };
 }
 

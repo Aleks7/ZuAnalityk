@@ -26,5 +26,5 @@ export const ENEMY_KINDS: Record<EnemyKind, EnemyKindDef> = {
 
 /** HP of a basic enemy on a given stage – grows exponentially. */
 export function stageBaseHp(stage: number): number {
-  return 2 * Math.pow(1.45, stage - 1);
+  return 2 * Math.pow(1.55, stage - 1);
 }

@@ -11,7 +11,7 @@ export interface GateDef {
 
 const randInt = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
 
-const WEIGHTS: [GateType, number][] = [['add', 45], ['fire', 22], ['dmg', 21], ['mul', 12]];
+const WEIGHTS: [GateType, number][] = [['add', 48], ['fire', 22], ['dmg', 22], ['mul', 8]];
 
 export function fmt(n: number): string {
   return (Math.round(n * 10) / 10).toString().replace('.', ',');

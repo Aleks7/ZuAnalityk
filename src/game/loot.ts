@@ -10,7 +10,7 @@ export interface LootDef {
 
 // Tougher enemies (higher tier) drop bigger loot
 const AMOUNTS: Record<LootType, [number, number, number]> = {
-  soldier: [1, 3, 8],
+  soldier: [1, 2, 5],
   fire: [5, 10, 15],
   dmg: [0.1, 0.3, 0.6],
 };

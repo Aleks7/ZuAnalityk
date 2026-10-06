@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MAX_DRAWN, ROAD_MID, SPACING, START_FIRE_RATE, START_SOLDIERS, RUN_SPEED } from '../config';
+import { MAX_DRAWN, MAX_SHOOTERS, ROAD_MID, SPACING, START_FIRE_RATE, START_SOLDIERS, RUN_SPEED } from '../config';
 
 export function formationOffset(i: number): { x: number; y: number } {
   if (i === 0) return { x: 0, y: 0 };
@@ -42,6 +42,11 @@ export class Squad {
       })
       .setOrigin(0.5)
       .setDepth(30);
+  }
+
+  /** Damage per bullet. Soldiers above the shooter cap help, but with diminishing returns. */
+  bulletDamage(): number {
+    return this.damage * Math.max(1, Math.sqrt(this.count / MAX_SHOOTERS));
   }
 
   radius(): number {

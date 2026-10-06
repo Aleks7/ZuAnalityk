@@ -111,7 +111,7 @@ export const REWARDS: Reward[] = [
 ];
 
 function reinforcements(count: number): number {
-  return Math.max(10, Math.round(count * 0.5));
+  return Math.max(8, Math.round(count * 0.3));
 }
 
 export function rollRewards(h: RewardHost, n = 3): Reward[] {
