@@ -1,4 +1,5 @@
 import type { Squad } from './Squad';
+import { fmt } from './gates';
 
 export type LootType = 'soldier' | 'fire' | 'dmg';
 
@@ -7,12 +8,17 @@ export interface LootDef {
   amount: number;
 }
 
-// Brutes always drop something, and their soldier drops are bigger
-export function rollLoot(brute: boolean): LootDef {
+// Tougher enemies (higher tier) drop bigger loot
+const AMOUNTS: Record<LootType, [number, number, number]> = {
+  soldier: [1, 3, 8],
+  fire: [5, 10, 15],
+  dmg: [0.1, 0.3, 0.6],
+};
+
+export function rollLoot(tier: 1 | 2 | 3): LootDef {
   const r = Math.random();
-  if (r < 0.7) return { type: 'soldier', amount: brute ? 3 : 1 };
-  if (r < 0.87) return { type: 'fire', amount: brute ? 12 : 6 };
-  return { type: 'dmg', amount: brute ? 0.4 : 0.2 };
+  const type: LootType = r < 0.65 ? 'soldier' : r < 0.83 ? 'fire' : 'dmg';
+  return { type, amount: AMOUNTS[type][tier - 1] };
 }
 
 export function applyLoot(squad: Squad, loot: LootDef): string {
@@ -25,7 +31,7 @@ export function applyLoot(squad: Squad, loot: LootDef): string {
       return 'SZYBKOŚĆ +' + loot.amount + '%';
     case 'dmg':
       squad.damage += loot.amount;
-      return 'MOC +' + loot.amount;
+      return 'MOC +' + fmt(loot.amount);
   }
 }
 

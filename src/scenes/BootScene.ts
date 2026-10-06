@@ -12,6 +12,8 @@ export class BootScene extends Phaser.Scene {
     this.person('soldier', COLORS.squad, 16);
     this.person('enemy', COLORS.enemy, 18);
     this.person('brute', COLORS.brute, 30);
+    this.person('runner', 0xff8c1a, 15);
+    this.enemyVariants();
     this.boss();
     this.bullet();
     this.loot();
@@ -39,6 +41,60 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffdcb0);
     g.fillCircle(s * 0.5, s * 0.24, s * 0.2);
     g.generateTexture(key, s, s);
+    g.destroy();
+  }
+
+  private enemyVariants(): void {
+    // Shielder: person with a steel shield in front (enemies walk down, so the front is the bottom)
+    let g = this.g();
+    g.fillStyle(0x333333);
+    g.fillRect(8, 15, 4, 7);
+    g.fillRect(14, 15, 4, 7);
+    g.fillStyle(0xb03a2e);
+    g.fillCircle(13, 13, 7);
+    g.fillStyle(0xffdcb0);
+    g.fillCircle(13, 6, 4.5);
+    g.fillStyle(0x8fa3b8);
+    g.fillRoundedRect(1, 17, 24, 8, 3);
+    g.lineStyle(2, 0xdfe7ef);
+    g.strokeRoundedRect(1, 17, 24, 8, 3);
+    g.generateTexture('shielder', 26, 26);
+    g.destroy();
+
+    // Shooter: dark uniform and a rifle pointing down
+    g = this.g();
+    g.fillStyle(0x222222);
+    g.fillRect(13, 12, 4, 14);
+    g.fillStyle(0x333333);
+    g.fillRect(5, 13, 4, 6);
+    g.fillStyle(0x7a1f1f);
+    g.fillCircle(10, 11, 7);
+    g.fillStyle(0xffdcb0);
+    g.fillCircle(10, 5, 4.5);
+    g.generateTexture('shooter', 20, 26);
+    g.destroy();
+
+    // Tank: hull, tracks, turret and barrel pointing down
+    g = this.g();
+    g.fillStyle(0x2b2b2b);
+    g.fillRoundedRect(0, 2, 10, 50, 3);
+    g.fillRoundedRect(42, 2, 10, 50, 3);
+    g.fillStyle(0x5a6b3a);
+    g.fillRoundedRect(7, 6, 38, 42, 5);
+    g.fillStyle(0x45542c);
+    g.fillCircle(26, 24, 12);
+    g.fillRect(23, 30, 6, 26);
+    g.fillStyle(0xb03a2e);
+    g.fillCircle(26, 24, 4);
+    g.generateTexture('tank', 52, 58);
+    g.destroy();
+
+    g = this.g();
+    g.fillStyle(0xff3b30);
+    g.fillCircle(5, 5, 5);
+    g.fillStyle(0xffd0c8);
+    g.fillCircle(5, 5, 2);
+    g.generateTexture('enemyBullet', 10, 10);
     g.destroy();
   }
 

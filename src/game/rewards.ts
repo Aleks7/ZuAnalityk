@@ -1,4 +1,5 @@
 import type { Squad } from './Squad';
+import { fmt } from './gates';
 
 /** Helper counts/levels a reward can read or raise. */
 export interface HelperState {
@@ -37,9 +38,9 @@ export const REWARDS: Reward[] = [
   },
   {
     id: 'trigger',
-    title: 'Szybki spust',
+    title: 'Karabin maszynowy',
     icon: 'loot_fire',
-    desc: () => 'Szybkość strzelania ×1,4',
+    desc: h => `Szybkość strzelania: ${fmt(h.squad.fireRate)} → ${fmt(h.squad.fireRate * 1.4)} /s`,
     available: () => true,
     apply: h => { h.squad.fireRate *= 1.4; },
   },
@@ -47,7 +48,7 @@ export const REWARDS: Reward[] = [
     id: 'ammo',
     title: 'Ciężka amunicja',
     icon: 'loot_dmg',
-    desc: () => 'Obrażenia ×1,5',
+    desc: h => `Moc pocisku: ${fmt(h.squad.damage)} → ${fmt(h.squad.damage * 1.5)}`,
     available: () => true,
     apply: h => { h.squad.damage *= 1.5; },
   },
@@ -63,7 +64,7 @@ export const REWARDS: Reward[] = [
     id: 'shield',
     title: 'Tarcza',
     icon: 'icon_shield',
-    desc: () => '3 zderzenia z wrogami bez strat',
+    desc: h => `Blokuje 3 trafienia (masz ${h.squad.shield} → ${h.squad.shield + 3})`,
     available: () => true,
     apply: h => { h.squad.shield += 3; },
   },

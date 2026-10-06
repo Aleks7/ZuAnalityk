@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
 import {
-  BULLET_SPEED, COLORS, H, LOOT_CHANCE, LOOT_PICKUP_BONUS, MAX_SHOOTERS, PLAYER_SCREEN_Y,
+  BULLET_SPEED, COLORS, H, LOOT_PICKUP_BONUS, MAX_SHOOTERS, PLAYER_SCREEN_Y,
   ROAD_L, ROAD_MID, ROAD_R, W,
 } from '../config';
 import { Squad, formationOffset } from '../game/Squad';
-import { GateDef, applyGate, gateColor, gateIsGood, gateLabel } from '../game/gates';
+import { GateDef, applyGate, fmt, gateColor, gateLabel } from '../game/gates';
+import { ENEMY_KINDS, EnemyKind, stageBaseHp as stageHp } from '../game/enemies';
 import { applyLoot, lootColor, rollLoot } from '../game/loot';
 import { StageSpec, buildStage } from '../game/StageBuilder';
 import { HelperState, Reward, RewardHost, rollRewards } from '../game/rewards';
-import type { Boss, Enemy, Loot, Target } from '../game/types';
+import type { Boss, Enemy, EnemyBullet, Loot, Target } from '../game/types';
 import type { Helper, HelperHost } from '../game/helpers/Helper';
 import { Drone } from '../game/helpers/Drone';
 import { Dog } from '../game/helpers/Dog';
@@ -46,6 +47,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
   private enemies: Enemy[] = [];
   private gates: GatePair[] = [];
   private bullets: Bullet[] = [];
+  private enemyBullets: EnemyBullet[] = [];
   private boss!: Boss;
   private helperObjs: Helper[] = [];
   private dog: Dog | null = null;
@@ -57,6 +59,8 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
   private hudStage!: Phaser.GameObjects.Text;
   private hudScore!: Phaser.GameObjects.Text;
   private hudProgress!: Phaser.GameObjects.Graphics;
+  private statsBar!: Phaser.GameObjects.Container;
+  private statsKey = '';
   private emitters = new Map<number, Phaser.GameObjects.Particles.ParticleEmitter>();
 
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; a: Phaser.Input.Keyboard.Key; d: Phaser.Input.Keyboard.Key };
@@ -74,6 +78,8 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     this.enemies = [];
     this.gates = [];
     this.bullets = [];
+    this.enemyBullets = [];
+    this.statsKey = '';
     this.loot = [];
     this.helperObjs = [];
     this.dog = null;
@@ -102,6 +108,49 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     this.hudStage = this.add.text(10, 10, '', style).setScrollFactor(0).setDepth(100);
     this.hudScore = this.add.text(W - 10, 10, '', style).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     this.hudProgress = this.add.graphics().setScrollFactor(0).setDepth(100);
+    this.statsBar = this.add.container(0, 0).setScrollFactor(0).setDepth(100);
+  }
+
+  // Bottom bar with the current stats and helpers; rebuilt only when something changes
+  private updateStatsBar(): void {
+    const s = this.squad;
+    const h = this.helpers;
+    const stats: [string, string][] = [
+      ['loot_dmg', fmt(s.damage * Math.max(1, s.count / MAX_SHOOTERS))],
+      ['loot_fire', fmt(s.fireRate) + '/s'],
+    ];
+    if (s.multishot > 1) stats.push(['bullet', 'x' + s.multishot]);
+    if (s.shield > 0) stats.push(['icon_shield', String(s.shield)]);
+    if (s.magnet > 0) stats.push(['icon_magnet', '+' + s.magnet]);
+    const helpers: [string, string][] = [];
+    if (h.drones) helpers.push(['drone', 'x' + h.drones]);
+    if (h.dogLevel) helpers.push(['dog', 'poz.' + h.dogLevel]);
+    if (h.planeLevel) helpers.push(['plane', 'poz.' + h.planeLevel]);
+    if (h.falcons) helpers.push(['falcon', 'x' + h.falcons]);
+
+    const key = JSON.stringify([stats, helpers]);
+    if (key === this.statsKey) return;
+    this.statsKey = key;
+
+    const bar = this.statsBar;
+    bar.removeAll(true);
+    const rowH = 30;
+    const rows = helpers.length ? [stats, helpers] : [stats];
+    const top = H - rows.length * rowH - 4;
+    bar.add(this.add.rectangle(0, top, W, H - top, 0x000000, 0.5).setOrigin(0));
+    rows.forEach((items, r) => {
+      let x = 10;
+      const y = top + 4 + r * rowH + rowH / 2;
+      for (const [tex, label] of items) {
+        const icon = this.add.image(x, y, tex);
+        icon.setScale(Math.min(1, 22 / Math.max(icon.width, icon.height))).setOrigin(0, 0.5);
+        const text = this.add
+          .text(x + icon.displayWidth + 4, y, label, { fontFamily: FONT, fontSize: '15px', fontStyle: '700', color: '#ffffff' })
+          .setOrigin(0, 0.5);
+        bar.add([icon, text]);
+        x += icon.displayWidth + 4 + text.width + 14;
+      }
+    });
   }
 
   private createInput(): void {
@@ -127,16 +176,15 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     this.loot.filter(l => !l.claimed).forEach(l => l.sprite.destroy());
     this.loot = this.loot.filter(l => l.claimed);
     if (this.boss) this.boss.sprite.destroy();
+    this.enemyBullets.forEach(b => b.img.destroy());
+    this.enemyBullets = [];
 
     this.spec = buildStage(startY, this.stage);
 
     for (const g of this.spec.gates) {
-      this.gates.push({ ...g, used: false, views: [this.gateView(g.left, 'L', g.y), this.gateView(g.right, 'R', g.y)] });
+      this.gates.push({ ...g, used: false, views: [this.gateView(g.left, 'L', g.y), this.gateView(g.right, 'R', g.y), this.gateDivider(g.y)] });
     }
-    for (const e of this.spec.enemies) {
-      const sprite = this.add.image(e.x, e.y, e.brute ? 'brute' : 'enemy').setDepth(18);
-      this.enemies.push({ sprite, hp: e.hp, maxHp: e.hp, power: e.power, speed: e.speed, brute: e.brute, r: e.brute ? 15 : 9, dead: false });
-    }
+    for (const e of this.spec.enemies) this.spawnEnemy(e.kind, e.x, e.y, e.hp, e.armor, e.power, e.speed);
     this.boss = {
       sprite: this.add.image(ROAD_MID, this.spec.boss.y, 'boss').setDepth(19).setVisible(false),
       hp: this.spec.boss.hp,
@@ -146,8 +194,18 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
       active: false,
       dead: false,
       drainTimer: 0,
+      shootTimer: 2,
+      summonTimer: 4,
     };
     this.drawFinish();
+  }
+
+  private spawnEnemy(kind: EnemyKind, x: number, y: number, hp: number, armor: number, power: number, speed: number): Enemy {
+    const d = ENEMY_KINDS[kind];
+    const sprite = this.add.image(x, y, d.texture).setDepth(kind === 'tank' ? 17 : 18);
+    const e: Enemy = { sprite, hp, maxHp: hp, armor, power, speed, kind, r: d.r, dead: false, shootTimer: Phaser.Math.FloatBetween(0.5, 1.5) };
+    this.enemies.push(e);
+    return e;
   }
 
   private gateView(g: GateDef, side: 'L' | 'R', y: number): Phaser.GameObjects.Container {
@@ -163,6 +221,14 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
       .setOrigin(0.5)
       .setLineSpacing(-4);
     return this.add.container(x, y, [rect, postL, postR, text]).setDepth(10);
+  }
+
+  // Wall between the two gates with an "OR" badge – only one of them can be taken
+  private gateDivider(y: number): Phaser.GameObjects.Container {
+    const wall = this.add.rectangle(0, 0, 10, 70, 0x3a3a3a).setStrokeStyle(2, 0x222222);
+    const badge = this.add.circle(0, 0, 15, 0xffd23f).setStrokeStyle(2, 0xb3471d);
+    const text = this.add.text(0, 0, 'LUB', { fontFamily: FONT, fontSize: '11px', fontStyle: '900', color: '#3a2300' }).setOrigin(0.5);
+    return this.add.container(ROAD_MID, y, [wall, badge, text]).setDepth(11);
   }
 
   private drawFinish(): void {
@@ -278,14 +344,20 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
   // ---------- Combat ----------
   damageEnemy(e: Enemy, dmg: number): void {
     if (e.dead) return;
-    e.hp -= dmg;
+    // Armour soaks a flat amount of every hit, but at least 20% always gets through
+    e.hp -= Math.max(dmg * 0.2, dmg - e.armor);
     e.sprite.setTintFill(0xffffff);
     this.time.delayedCall(50, () => e.sprite.clearTint());
     if (e.hp > 0) return;
     e.dead = true;
-    this.score += e.brute ? 15 : 3;
-    this.burst(e.sprite.x, e.sprite.y, e.brute ? 0xa24cff : 0xff9a3c, e.brute ? 18 : 8);
-    if (e.brute || Math.random() < LOOT_CHANCE) this.dropLoot(e.sprite.x, e.sprite.y, e.brute);
+    const d = ENEMY_KINDS[e.kind];
+    this.score += d.score;
+    this.burst(e.sprite.x, e.sprite.y, d.lootTier > 1 ? 0xa24cff : 0xff9a3c, d.lootTier > 1 ? 18 : 8);
+    if (e.kind === 'tank') {
+      this.burst(e.sprite.x, e.sprite.y, 0x444444, 20);
+      this.cameras.main.shake(200, 0.01);
+    }
+    if (Math.random() < d.lootChance) this.dropLoot(e.sprite.x, e.sprite.y, d.lootTier);
     e.sprite.destroy();
   }
 
@@ -298,8 +370,8 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     if (b.hp <= 0) this.killBoss();
   }
 
-  private dropLoot(x: number, y: number, brute: boolean): void {
-    const def = rollLoot(brute);
+  private dropLoot(x: number, y: number, tier: 1 | 2 | 3): void {
+    const def = rollLoot(tier);
     const sprite = this.add.image(x, y, 'loot_' + def.type).setDepth(12).setScale(0);
     this.tweens.add({ targets: sprite, scale: 1, duration: 200, ease: 'Back.Out' });
     this.tweens.add({ targets: sprite, y: y - 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: 200 });
@@ -377,6 +449,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
 
     this.updateBullets(dt);
     this.updateEnemies(dt);
+    this.updateEnemyBullets(dt);
     this.updateBoss(dt);
     this.updateLoot(dt);
     for (const h of this.helperObjs) h.update(dt);
@@ -384,6 +457,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     squad.render();
     this.drawBars();
     this.updateHud();
+    this.updateStatsBar();
 
     if (this.state === 'playing' && squad.count <= 0) this.gameOver();
   }
@@ -438,15 +512,15 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
       const left = s.x < ROAD_MID;
       const chosen = left ? g.left : g.right;
       applyGate(s, chosen);
-      const good = gateIsGood(chosen);
-      if (good) this.score += 10;
-      g.views.forEach((v, i) => {
-        v.setAlpha((i === 0) === left ? 0.5 : 0.2);
-        (v.list[3] as Phaser.GameObjects.Text).setVisible(false);
-      });
-      this.floater(s.x, s.y - 60, gateLabel(chosen).replace('\n', ' '), good ? '#7df9ff' : '#ff6b6b', 30);
-      this.burst(s.x, s.y, good ? 0x7df9ff : 0xff6b6b, 18);
-      if (!good) this.cameras.main.shake(150, 0.008);
+      this.score += 10;
+      const [lv, rv, divider] = g.views;
+      const [taken, other] = left ? [lv, rv] : [rv, lv];
+      // the chosen gate pops, the other one collapses – you get exactly one bonus
+      this.tweens.add({ targets: taken, scaleX: 1.15, scaleY: 1.3, alpha: 0, duration: 250, onComplete: () => taken.destroy() });
+      this.tweens.add({ targets: other, scaleY: 0, alpha: 0, duration: 200, onComplete: () => other.destroy() });
+      this.tweens.add({ targets: divider, alpha: 0, duration: 200, onComplete: () => divider.destroy() });
+      this.floater(s.x, s.y - 60, gateLabel(chosen).replace('\n', ' '), '#7df9ff', 30);
+      this.burst(s.x, s.y, 0x7df9ff, 18);
     }
   }
 
@@ -502,7 +576,14 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
       // Waves start marching once on screen, straight down – no homing, so they can be dodged
       if (sp.y > top - 60) {
         sp.y += e.speed * dt;
-        sp.setAngle(Math.sin(this.time.now / 90 + sp.x) * 6);
+        if (e.kind !== 'tank') sp.setAngle(Math.sin(this.time.now / 90 + sp.x) * 6);
+        if (e.kind === 'shooter' && this.state === 'playing' && sp.y > top + 30 && sp.y < s.y - 80) {
+          e.shootTimer -= dt;
+          if (e.shootTimer <= 0) {
+            e.shootTimer = 1.6;
+            this.enemyShoot(sp.x, sp.y + 10, s.x, s.y, 230, e.power);
+          }
+        }
       }
       if (this.state === 'playing') {
         const dx = sp.x - s.x;
@@ -511,16 +592,7 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
           e.dead = true;
           this.burst(sp.x, sp.y, 0xff4d4d, 14);
           sp.destroy();
-          if (s.shield > 0) {
-            s.shield--;
-            this.floater(s.x, s.y - sr - 40, 'TARCZA', '#7df9ff', 18);
-          } else {
-            const lost = Math.min(s.count, e.power);
-            s.count -= lost;
-            s.flash();
-            this.cameras.main.shake(120, 0.008);
-            if (lost > 0) this.floater(s.x, s.y - sr - 40, '-' + lost, '#ff6b6b', 22);
-          }
+          this.hurtSquad(e.power);
           continue;
         }
       }
@@ -532,11 +604,87 @@ export class GameScene extends Phaser.Scene implements HelperHost, RewardHost {
     this.enemies = this.enemies.filter(e => !e.dead);
   }
 
+  private hurtSquad(power: number): void {
+    const s = this.squad;
+    const sr = s.radius();
+    if (s.shield > 0) {
+      s.shield--;
+      this.floater(s.x, s.y - sr - 40, 'TARCZA', '#7df9ff', 18);
+      return;
+    }
+    const lost = Math.min(s.count, power);
+    s.count -= lost;
+    s.flash();
+    this.cameras.main.shake(120, 0.008);
+    if (lost > 0) this.floater(s.x, s.y - sr - 40, '-' + lost, '#ff6b6b', 22);
+  }
+
+  private enemyShoot(x: number, y: number, tx: number, ty: number, speed: number, power: number): void {
+    const a = Math.atan2(ty - y, tx - x);
+    this.enemyShootAngle(x, y, a, speed, power);
+  }
+
+  private enemyShootAngle(x: number, y: number, a: number, speed: number, power: number): void {
+    let b = this.enemyBullets.find(o => !o.alive);
+    if (!b) {
+      b = { img: this.add.image(0, 0, 'enemyBullet').setDepth(31), vx: 0, vy: 0, power: 0, alive: false };
+      this.enemyBullets.push(b);
+    }
+    b.img.setPosition(x, y).setVisible(true);
+    b.vx = Math.cos(a) * speed;
+    b.vy = Math.sin(a) * speed;
+    b.power = power;
+    b.alive = true;
+  }
+
+  private updateEnemyBullets(dt: number): void {
+    const s = this.squad;
+    const sr = s.radius();
+    const top = this.viewTop() - 40;
+    const bottom = this.viewBottom() + 40;
+    for (const b of this.enemyBullets) {
+      if (!b.alive) continue;
+      b.img.x += b.vx * dt;
+      b.img.y += b.vy * dt;
+      const hit = this.state === 'playing' && (b.img.x - s.x) ** 2 + (b.img.y - s.y) ** 2 < (sr + 4) ** 2;
+      if (hit) this.hurtSquad(b.power);
+      if (hit || b.img.y < top || b.img.y > bottom || b.img.x < 0 || b.img.x > W) {
+        b.alive = false;
+        b.img.setVisible(false);
+      }
+    }
+  }
+
   private updateBoss(dt: number): void {
     const b = this.boss;
     if (!b.active || b.dead || this.state !== 'playing') return;
     const s = this.squad;
     const sr = s.radius();
+    const bx = b.sprite.x;
+    const by = b.sprite.y;
+    // From stage 2 the boss fires spreads, from stage 4 it also calls in runners
+    if (this.stage >= 2 && by > this.viewTop() + 40) {
+      b.shootTimer -= dt;
+      if (b.shootTimer <= 0) {
+        b.shootTimer = Math.max(1.2, 2.4 - this.stage * 0.1);
+        const shots = Math.min(3 + this.stage, 9);
+        const base = Math.atan2(s.y - by, s.x - bx);
+        for (let i = 0; i < shots; i++) {
+          this.enemyShootAngle(bx, by + 30, base + (i - (shots - 1) / 2) * 0.16, 210, 1 + Math.floor(this.stage / 2));
+        }
+      }
+    }
+    if (this.stage >= 4 && by > this.viewTop() + 40) {
+      b.summonTimer -= dt;
+      if (b.summonTimer <= 0) {
+        b.summonTimer = 5;
+        const d = ENEMY_KINDS.runner;
+        const hp = stageHp(this.stage) * d.hpMult;
+        for (const off of [-60, 0, 60]) {
+          this.spawnEnemy('runner', Phaser.Math.Clamp(bx + off, ROAD_L + 10, ROAD_R - 10), by + 40, hp, 0, d.power(this.stage), 35 * d.speedMult);
+        }
+      }
+    }
     if (s.y - b.sprite.y > b.r + sr) {
       b.sprite.y += b.speed * dt;
       b.sprite.x += Phaser.Math.Clamp(s.x - b.sprite.x, -1, 1) * 20 * dt;

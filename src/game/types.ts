@@ -1,15 +1,26 @@
 import type Phaser from 'phaser';
 import type { LootDef } from './loot';
+import type { EnemyKind } from './enemies';
 
 export interface Enemy {
   sprite: Phaser.GameObjects.Image;
   hp: number;
   maxHp: number;
+  armor: number;
   power: number;
   speed: number;
-  brute: boolean;
+  kind: EnemyKind;
   r: number;
   dead: boolean;
+  shootTimer: number;
+}
+
+export interface EnemyBullet {
+  img: Phaser.GameObjects.Image;
+  vx: number;
+  vy: number;
+  power: number;
+  alive: boolean;
 }
 
 export interface Boss {
@@ -21,6 +32,8 @@ export interface Boss {
   active: boolean;
   dead: boolean;
   drainTimer: number;
+  shootTimer: number;
+  summonTimer: number;
 }
 
 export interface Loot {
